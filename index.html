@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <meta http-equiv="Expires" content="86400">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <meta charset="utf-8">
+    <meta name="typewriter" content="An interactive exhibit for the Jack London Museum">
+
+    <!--    <meta http-equiv="X-UA-Compatible" content="IE=edge">-->
+    <title>Tell Your Story</title>
+    <link rel="stylesheet" href="main.css">
+    <script type='text/javascript' src='js/StarWebPrintBuilder.js'></script>
+    <script type='text/javascript' src='js/StarWebPrintTrader.js'></script>
+    <script src="js/jquery-3.3.1.min.js"></script>
+    <script type="text/javascript">
+        //        $(document).ready(function() {
+        //            var textArea = $('#targetTextArea');
+        //            var maxRows = textArea.attr('rows');
+        //            var maxChars = textArea.attr('cols');
+        //            textArea.keypress(function(e) {
+        //                var text = textArea.val();
+        //                var lines = text.split('\n');
+        //                if (e.keyCode == 13) {
+        //                    return lines.length < maxRows;
+        //                } else { //Should check for backspace/del/etc.
+        //                    var caret = textArea.get(0).selectionStart;
+        //                    console.log(caret);
+        //
+        //                    var line = 0;
+        //                    var charCount = 0;
+        //                    $.each(lines, function(i, e) {
+        //                        charCount += e.length;
+        //                        if (caret <= charCount) {
+        //                            line = i;
+        //                            return false;
+        //                        }
+        //                        //\n count for 1 char;
+        //                        charCount += 1;
+        //                    });
+        //
+        //                    var theLine = lines[line];
+        //                    return theLine.length < maxChars;
+        //                }
+        //            });
+        //
+        //        });
+
+        $(document).ready(function() {
+            var textArea = $('#targetTextArea');
+            var maxRows = textArea.attr('rows');
+            var ctrlDown = false,
+                ctrlKey = 17,
+                cmdKey = 91,
+                vKey = 86,
+                cKey = 67,
+                enterKey = 13;
+            var maxEnterCount = 30;
+            var lineCount = 0;
+
+            //Disable full page
+            $("body").on("contextmenu", function(e) {
+                return false;
+            });
+            $('body').bind('cut copy paste', function(e) {
+                e.preventDefault();
+            });
+
+            $(document).keydown(function(e) {
+                if (e.keyCode == ctrlKey || e.keyCode == cmdKey) ctrlDown = true;
+            }).keyup(function(e) {
+                if (e.keyCode == ctrlKey || e.keyCode == cmdKey) ctrlDown = false;
+            }).on('contextmenu', function(e) {
+                e.preventDefault();
+            });
+            $('textarea').keydown(function(e) {
+
+
+                lineCount = (wordWrap($(this).val(), 24).match(new RegExp("\n", "g")) || []).length;
+                console.log("lineCount " + lineCount);
+
+                var allowed = [8, 46, 37, 38, 39, 40]
+                if (!allowed.includes(e.keyCode) && lineCount >= 30) {
+                    return false;
+                }
+
+
+                if (ctrlDown && (e.keyCode == vKey || e.keyCode == cKey)) return false;
+            }).keypress(function(e) {
+                //                if (e.keyCode == enterKey) {
+                //                    lineCount = $(this).val().split('\n').length;
+                //                    if (lineCount == maxEnterCount) {
+                //                        return false;
+                //                    }
+                //                }
+            });
+        });
+
+
+
+        function print() {
+            document.getElementById("targetTextArea").focus();
+
+            var textArea = String(document.getElementById('targetTextArea').value.replace(/\n/gi, '<br>'));
+
+            var cleanTextArea = textArea.replace(/<br>/g, "\n");
+
+            var wrapped = wordWrap(cleanTextArea, 24);
+            var length = wrapped.replace(/\s/g, "").length;
+            if (length > 0) {
+
+
+                console.log("len is " + length);
+
+
+                var builder = new StarWebPrintBuilder();
+
+                var request = '';
+
+                request += builder.createInitializationElement();
+
+                request += builder.createTextElement({
+                    characterspace: 0,
+                    width: 2,
+                    height: 2
+                });
+
+                request += builder.createAlignmentElement({
+                    position: 'left'
+                });
+                var newLine = "\n"
+                request += builder.createTextElement({
+                    data: newLine.repeat(7)
+                });
+                request += builder.createTextElement({
+                    data: wrapped
+                });
+                request += builder.createCutPaperElement({
+                    feed: true
+                });
+
+                var url = "https://localhost:8001/StarWebPRNT/SendMessage";
+                var papertype = "normal";
+                var trader = new StarWebPrintTrader({
+                    url: url,
+                    papertype: papertype
+                });
+
+                trader.onReceive = function(response) {
+                    //                            alert(response.responseText);
+                    //                    location.reload();
+                }
+                trader.onError = function(response) {
+                    alert(response.responseText);
+                    //                    location.reload();
+                }
+                //            console.log(request);
+                trader.sendMessage({
+                    request: request
+                });
+                document.getElementById("targetTextArea").value = "";
+                //                location.reload();
+
+                //            setTimeout(, 4000);
+
+            }
+        }
+
+        //        str = wordWrap(str, 40);
+
+        function wordWrap(str, maxWidth) {
+            var newLineStr = "\n";
+            done = false;
+            res = '';
+            do {
+                found = false;
+                // Inserts new line at first whitespace of the line
+                for (i = maxWidth - 1; i >= 0; i--) {
+                    if (testWhite(str.charAt(i))) {
+                        res = res + [str.slice(0, i), newLineStr].join('');
+                        str = str.slice(i + 1);
+                        found = true;
+                        break;
+                    }
+                }
+                // Inserts new line at maxWidth position, the word is too long to wrap
+                if (!found) {
+                    res += [str.slice(0, maxWidth), newLineStr].join('');
+                    str = str.slice(maxWidth);
+                }
+
+                if (str.length < maxWidth)
+                    done = true;
+            } while (!done);
+
+            return res + str;
+        }
+
+        function testWhite(x) {
+            var white = new RegExp(/^\s$/);
+            return white.test(x.charAt(0));
+        };
+
+    </script>
+
+</head>
+
+<body>
+
+    <h1 align="center" href="#" onClick="window.location.reload();return false;">What's Your Story?</h1>
+
+    <div class="myelement1">
+
+        <textarea class="preventcopy" autofocus="autofocus" data-limit-rows="true" cols="24" rows="31" maxlength="672" type="text" name="textarea" wrap="wrap" id="targetTextArea" rows="10" cols="30" placeholder="Tell Your Story..."></textarea>
+        <input type="submit" onclick="print()" value="Print Text" />
+
+    </div>
+
+</body>
